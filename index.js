@@ -95,7 +95,6 @@ app.use((req, res, next) => {
   next()
 })
 
-// Home endpoint with specified response
 app.get("/", (req, res) => {
   res.json({
     data: {
@@ -112,7 +111,6 @@ app.get("/", (req, res) => {
   })
 })
 
-// Health check endpoint
 app.get("/health", (req, res) => {
   const uptime = process.uptime()
   const uptimeFormatted = {
