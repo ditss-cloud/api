@@ -7,7 +7,7 @@
   },
   "apiSettings": {
     "creator": "RaolByte",
-    "requireApikey": true,
+    "requireApikey": false,
     "apikey": {
       "demo": {
         "rateLimit": "100/day",
