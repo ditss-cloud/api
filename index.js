@@ -4,7 +4,6 @@ import fs from "fs"
 import cors from "cors"
 import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
-import { logger } from "./src/lib/logger.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -137,24 +136,6 @@ app.get("/health", (req, res) => {
   })
 })
 
-// API info endpoint
-app.get("/api/info", (req, res) => {
-  res.json({
-    data: {
-      name: "Raol-UI REST API",
-      version: "5.1.1",
-      description: "Minimalist plugin-based REST API framework",
-      creator: "RaolByte",
-      endpoints: {
-        health: "/health",
-        info: "/api/info",
-        plugins: "/api/plugins"
-      }
-    }
-  })
-})
-
-// Plugin system - load API routes dynamically
 let totalRoutes = 0
 const apiFolder = path.join(__dirname, "./src/api")
 
@@ -180,7 +161,6 @@ const loadApiRoutes = async () => {
             if (typeof routeHandler === "function") {
               routeHandler(app)
               totalRoutes++
-              logger.info(`Loaded Route: ${path.basename(file)}`)
               console.log(
                 chalk
                   .bgHex("#FFFF99")
@@ -189,7 +169,6 @@ const loadApiRoutes = async () => {
               )
             }
           } catch (error) {
-            logger.error(`Error loading route ${file}:`, error)
             console.error(`Error loading route ${file}:`, error)
           }
         }
@@ -198,7 +177,6 @@ const loadApiRoutes = async () => {
   }
 }
 
-// Load plugins endpoint
 app.get("/api/plugins", (req, res) => {
   const plugins = []
   
@@ -216,11 +194,26 @@ app.get("/api/plugins", (req, res) => {
           
           for (const file of jsFiles) {
             const fileName = file.replace('.js', '')
+            let url = `/${subfolder}/${fileName}`
+            let params = []
+            
+            if (subfolder === 'random' && fileName === 'random-bluearchive') {
+              url = '/random/ba'
+            } else if (subfolder === 'maker' && fileName === 'maker-brat') {
+              url = '/maker/brat'
+              params = [
+                { name: 'text', required: true, type: 'string', description: 'Text to be inserted into the BRAT image' },
+                { name: 'background', required: false, type: 'string', description: 'Background color in hex format (e.g., #000000)' },
+                { name: 'color', required: false, type: 'string', description: 'Text color in hex format (e.g., #FFFFFF)' }
+              ]
+            }
+            
             pluginEndpoints.push({
               name: fileName,
-              url: `/api/${subfolder}/${fileName}`,
+              url: url,
               method: "GET",
-              description: `API endpoint from ${subfolder} category`
+              description: `API endpoint from ${subfolder} category`,
+              params: params
             })
           }
           
@@ -252,10 +245,8 @@ app.get("/api/plugins", (req, res) => {
   })
 })
 
-// Load API routes
 await loadApiRoutes()
 
-// 404 handler for undefined routes
 app.use("*", (req, res) => {
   res.status(404).json({
     data: null,
@@ -266,9 +257,7 @@ app.use("*", (req, res) => {
   })
 })
 
-// Error handler
 app.use((err, req, res, next) => {
-  logger.error("Server error:", err.stack)
   console.error(err.stack)
   
   res.status(err.status || 500).json({
@@ -280,7 +269,6 @@ app.use((err, req, res, next) => {
   })
 })
 
-// Find available port
 const findAvailablePort = (startPort) => {
   return new Promise((resolve) => {
     const server = app
@@ -294,25 +282,20 @@ const findAvailablePort = (startPort) => {
   })
 }
 
-// Start server
 const startServer = async () => {
   try {
     PORT = await findAvailablePort(PORT)
 
     app.listen(PORT, () => {
-      logger.info(`Raol-UI REST API Server started on port ${PORT}`)
-      logger.info(`Total Routes Loaded: ${totalRoutes}`)
       console.log(chalk.bgHex("#90EE90").hex("#333").bold(` Raol-UI REST API Server is running on port ${PORT} `))
       console.log(chalk.bgHex("#90EE90").hex("#333").bold(` Total Routes Loaded: ${totalRoutes} `))
       console.log(chalk.cyan(`\nAvailable endpoints:`))
       console.log(chalk.white(`  GET  /           - Home endpoint`))
       console.log(chalk.white(`  GET  /health     - Health check`))
-      console.log(chalk.white(`  GET  /api/info   - API information`))
       console.log(chalk.white(`  GET  /api/plugins - List loaded plugins`))
       console.log(chalk.white(`\nPure JSON responses - No frontend components`))
     })
   } catch (err) {
-    logger.error(`Server failed to start: ${err.message}`)
     console.error(chalk.bgRed.white(` Server failed to start: ${err.message} `))
     process.exit(1)
   }
