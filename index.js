@@ -11,16 +11,13 @@ const __dirname = path.dirname(__filename)
 const app = express()
 let PORT = process.env.PORT || 3000
 
-// Basic Express configuration
 app.enable("trust proxy")
 app.set("json spaces", 2)
 
-// Middleware
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 app.use(cors())
 
-// Security headers
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff")
   res.setHeader("X-Frame-Options", "DENY")
@@ -29,10 +26,9 @@ app.use((req, res, next) => {
   next()
 })
 
-// Rate limiting
 const requestCounts = new Map()
-const RATE_LIMIT_WINDOW = 1 * 60 * 1000 // 1 minute
-const RATE_LIMIT_MAX = 100 // requests per window
+const RATE_LIMIT_WINDOW = 1 * 60 * 1000
+const RATE_LIMIT_MAX = 100
 
 app.use((req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress
@@ -64,7 +60,6 @@ app.use((req, res, next) => {
   next()
 })
 
-// Clean up rate limit data periodically
 setInterval(() => {
   const now = Date.now()
   for (const [ip, data] of requestCounts.entries()) {
@@ -221,7 +216,7 @@ app.get("/api/plugins", (req, res) => {
       ...category,
       items: category.items.map(item => ({
         ...item,
-        path: requireApikey ? `${item.path}&apikey=YOUR_API_KEY` : item.path
+        path: requireApikey ? `${item.path}?apikey=YOUR_API_KEY` : item.path
       }))
     }))
     
