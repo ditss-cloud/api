@@ -140,7 +140,6 @@ const apiFolder = path.join(__dirname, "./src/api")
 
 const loadApiRoutes = async () => {
   if (!fs.existsSync(apiFolder)) {
-    console.log(chalk.yellow("API folder not found, creating basic structure..."))
     fs.mkdirSync(apiFolder, { recursive: true })
     return
   }
