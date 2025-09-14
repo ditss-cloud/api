@@ -4,6 +4,7 @@ import fs from "fs"
 import cors from "cors"
 import path from "path"
 import { fileURLToPath, pathToFileURL } from "url"
+import { logger } from "./src/lib/logger.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -96,23 +97,44 @@ app.use((req, res, next) => {
 
 // Home endpoint with specified response
 app.get("/", (req, res) => {
-  res.status(404).json({
-    data: null,
-    error: {
-      status: "Not Found",
-      message: "The requested resource could not be found."
+  res.json({
+    data: {
+      name: "Raol-UI REST API",
+      version: "5.1.1",
+      description: "Minimalist plugin-based REST API framework",
+      creator: "RaolByte",
+      endpoints: {
+        health: "/health",
+        info: "/api/info",
+        plugins: "/api/plugins"
+      }
     }
   })
 })
 
 // Health check endpoint
 app.get("/health", (req, res) => {
+  const uptime = process.uptime()
+  const uptimeFormatted = {
+    seconds: Math.floor(uptime),
+    minutes: Math.floor(uptime / 60),
+    hours: Math.floor(uptime / 3600),
+    days: Math.floor(uptime / 86400),
+    formatted: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`
+  }
+  
   res.json({
     data: {
       status: "healthy",
       timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: "5.1.1"
+      uptime: uptimeFormatted,
+      version: "5.1.1",
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + " MB",
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + " MB"
+      },
+      platform: process.platform,
+      nodeVersion: process.version
     }
   })
 })
@@ -160,6 +182,7 @@ const loadApiRoutes = async () => {
             if (typeof routeHandler === "function") {
               routeHandler(app)
               totalRoutes++
+              logger.info(`Loaded Route: ${path.basename(file)}`)
               console.log(
                 chalk
                   .bgHex("#FFFF99")
@@ -168,6 +191,7 @@ const loadApiRoutes = async () => {
               )
             }
           } catch (error) {
+            logger.error(`Error loading route ${file}:`, error)
             console.error(`Error loading route ${file}:`, error)
           }
         }
@@ -190,10 +214,23 @@ app.get("/api/plugins", (req, res) => {
         const jsFiles = files.filter(file => path.extname(file) === ".js")
         
         if (jsFiles.length > 0) {
+          const pluginEndpoints = []
+          
+          for (const file of jsFiles) {
+            const fileName = file.replace('.js', '')
+            pluginEndpoints.push({
+              name: fileName,
+              url: `/api/${subfolder}/${fileName}`,
+              method: "GET",
+              description: `API endpoint from ${subfolder} category`
+            })
+          }
+          
           plugins.push({
             category: subfolder,
             files: jsFiles,
-            endpoints: jsFiles.map(file => `/${subfolder}/${file.replace('.js', '')}`)
+            endpoints: pluginEndpoints,
+            totalEndpoints: pluginEndpoints.length
           })
         }
       }
@@ -204,7 +241,15 @@ app.get("/api/plugins", (req, res) => {
     data: {
       totalPlugins: plugins.length,
       totalRoutes: totalRoutes,
-      plugins: plugins
+      plugins: plugins,
+      builtInFeatures: {
+        rateLimit: "100 requests per minute",
+        cors: "Cross-Origin Resource Sharing enabled",
+        securityHeaders: "X-Content-Type-Options, X-Frame-Options, X-XSS-Protection",
+        apikeyAuth: "Available in middleware",
+        logging: "File-based logging system",
+        healthCheck: "/health endpoint"
+      }
     }
   })
 })
@@ -225,6 +270,7 @@ app.use("*", (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  logger.error("Server error:", err.stack)
   console.error(err.stack)
   
   res.status(err.status || 500).json({
@@ -256,16 +302,19 @@ const startServer = async () => {
     PORT = await findAvailablePort(PORT)
 
     app.listen(PORT, () => {
+      logger.info(`Raol-UI REST API Server started on port ${PORT}`)
+      logger.info(`Total Routes Loaded: ${totalRoutes}`)
       console.log(chalk.bgHex("#90EE90").hex("#333").bold(` Raol-UI REST API Server is running on port ${PORT} `))
       console.log(chalk.bgHex("#90EE90").hex("#333").bold(` Total Routes Loaded: ${totalRoutes} `))
       console.log(chalk.cyan(`\nAvailable endpoints:`))
-      console.log(chalk.white(`  GET  /           - Home endpoint (404 response)`))
+      console.log(chalk.white(`  GET  /           - Home endpoint`))
       console.log(chalk.white(`  GET  /health     - Health check`))
       console.log(chalk.white(`  GET  /api/info   - API information`))
       console.log(chalk.white(`  GET  /api/plugins - List loaded plugins`))
       console.log(chalk.white(`\nPure JSON responses - No frontend components`))
     })
   } catch (err) {
+    logger.error(`Server failed to start: ${err.message}`)
     console.error(chalk.bgRed.white(` Server failed to start: ${err.message} `))
     process.exit(1)
   }
