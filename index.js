@@ -177,78 +177,36 @@ const loadApiRoutes = async () => {
 }
 
 app.get("/api/plugins", (req, res) => {
-  const plugins = []
-  
-  if (fs.existsSync(apiFolder)) {
-    const subfolders = fs.readdirSync(apiFolder)
+  try {
+    const settings = JSON.parse(fs.readFileSync(path.join(__dirname, "./src/settings.json"), "utf-8"))
     
-    for (const subfolder of subfolders) {
-      const subfolderPath = path.join(apiFolder, subfolder)
-      if (fs.statSync(subfolderPath).isDirectory()) {
-        const files = fs.readdirSync(subfolderPath)
-        const jsFiles = files.filter(file => path.extname(file) === ".js")
-        
-        if (jsFiles.length > 0) {
-          const pluginEndpoints = []
-          
-          for (const file of jsFiles) {
-            const fileName = file.replace('.js', '')
-            let url = `/${subfolder}/${fileName}`
-            let params = []
-            
-            if (subfolder === 'random' && fileName === 'random-bluearchive') {
-              url = '/random/ba'
-            } else if (subfolder === 'maker' && fileName === 'maker-brat') {
-              url = '/maker/brat'
-              params = [
-                { name: 'text', required: true, type: 'string', description: 'Text to be inserted into the BRAT image' },
-                { name: 'background', required: false, type: 'string', description: 'Background color in hex format (e.g., #000000)' },
-                { name: 'color', required: false, type: 'string', description: 'Text color in hex format (e.g., #FFFFFF)' }
-              ]
-            } else if (subfolder === 'maker' && fileName === 'maker-bratvid') {
-              url = '/maker/bratvid'
-              params = [
-                { name: 'text', required: true, type: 'string', description: 'Text to be inserted into the BRAT video' },
-                { name: 'background', required: false, type: 'string', description: 'Background color in hex format (e.g., #000000)' },
-                { name: 'color', required: false, type: 'string', description: 'Text color in hex format (e.g., #FFFFFF)' }
-              ]
-            }
-            
-            pluginEndpoints.push({
-              name: fileName,
-              url: url,
-              method: "GET",
-              description: `API endpoint from ${subfolder} category`,
-              params: params
-            })
-          }
-          
-          plugins.push({
-            category: subfolder,
-            files: jsFiles,
-            endpoints: pluginEndpoints,
-            totalEndpoints: pluginEndpoints.length
-          })
+    res.json({
+      data: {
+        name: settings.name,
+        version: settings.version,
+        description: settings.description,
+        creator: settings.apiSettings.creator,
+        totalPlugins: settings.categories.length,
+        totalRoutes: totalRoutes,
+        categories: settings.categories,
+        builtInFeatures: {
+          rateLimit: "100 requests per minute",
+          cors: "Cross-Origin Resource Sharing enabled",
+          securityHeaders: "X-Content-Type-Options, X-Frame-Options, X-XSS-Protection",
+          apikeyAuth: "Available in middleware",
+          healthCheck: "/health endpoint"
         }
       }
-    }
-  }
-
-  res.json({
-    data: {
-      totalPlugins: plugins.length,
-      totalRoutes: totalRoutes,
-      plugins: plugins,
-      builtInFeatures: {
-        rateLimit: "100 requests per minute",
-        cors: "Cross-Origin Resource Sharing enabled",
-        securityHeaders: "X-Content-Type-Options, X-Frame-Options, X-XSS-Protection",
-        apikeyAuth: "Available in middleware",
-        logging: "File-based logging system",
-        healthCheck: "/health endpoint"
+    })
+  } catch (error) {
+    res.status(500).json({
+      data: null,
+      error: {
+        status: "Internal Server Error",
+        message: "Failed to load plugin settings"
       }
-    }
-  })
+    })
+  }
 })
 
 await loadApiRoutes()

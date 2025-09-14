@@ -1,0 +1,62 @@
+{
+  "name": "Raol-UI REST API",
+  "version": "5.1.1",
+  "description": "Minimalist plugin-based REST API framework. Pure JSON responses, no UI components.",
+  "maintenance": {
+    "enabled": false
+  },
+  "apiSettings": {
+    "creator": "RaolByte",
+    "requireApikey": false,
+    "apikey": {
+      "demo": {
+        "rateLimit": "100/day",
+        "enabled": true
+      },
+      "admin": {
+        "rateLimit": "unlimited",
+        "enabled": true
+      }
+    }
+  },
+  "categories": [
+    {
+      "name": "Random Images",
+      "items": [
+        {
+          "name": "Blue Archive",
+          "desc": "Get random high-quality Blue Archive character images",
+          "path": "/random/ba",
+          "status": "ready"
+        }
+      ]
+    },
+    {
+      "name": "Image Makers",
+      "items": [
+        {
+          "name": "BRAT Generator",
+          "desc": "Generate BRAT-style text images with customizable colors and backgrounds",
+          "path": "/maker/brat?text=Hello World",
+          "status": "ready",
+          "params": {
+            "text": "Text to be inserted into the BRAT image (required)",
+            "background": "Background color in hex format (optional, e.g., #000000)",
+            "color": "Text color in hex format (optional, e.g., #FFFFFF)"
+          }
+        },
+        {
+          "name": "BRAT Video Generator",
+          "desc": "Generate animated BRAT-style text videos with customizable colors and backgrounds",
+          "path": "/maker/bratvid?text=Hello World",
+          "status": "ready",
+          "params": {
+            "text": "Text to be inserted into the BRAT video (required)",
+            "background": "Background color in hex format (optional, e.g., #000000)",
+            "color": "Text color in hex format (optional, e.g., #FFFFFF)"
+          }
+        }
+      ]
+    }
+  ]
+}
