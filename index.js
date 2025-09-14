@@ -74,39 +74,75 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW)
 
-// Global JSON response wrapper
 app.use((req, res, next) => {
-  const originalJson = res.json
-  res.json = function (data) {
-    if (data && typeof data === "object") {
-      const responseData = {
-        info: "Development by RaolByte",
-        code: res.statusCode,
-        success: res.statusCode >= 200 && res.statusCode < 300,
-        data: data.data || data,
-        error: data.error || null,
-        ...data
+  try {
+    const settings = JSON.parse(fs.readFileSync(path.join(__dirname, "./src/settings.json"), "utf-8"))
+    const creator = settings.apiSettings.creator || "RaolByte"
+    
+    const originalJson = res.json
+    res.json = function (data) {
+      if (data && typeof data === "object") {
+        const responseData = {
+          info: `Development by ${creator}`,
+          code: res.statusCode,
+          success: res.statusCode >= 200 && res.statusCode < 300,
+          data: data.data || data,
+          error: data.error || null,
+          ...data
+        }
+        return originalJson.call(this, responseData)
       }
-      return originalJson.call(this, responseData)
+      return originalJson.call(this, data)
     }
-    return originalJson.call(this, data)
+  } catch (error) {
+    const originalJson = res.json
+    res.json = function (data) {
+      if (data && typeof data === "object") {
+        const responseData = {
+          info: "Development by RaolByte",
+          code: res.statusCode,
+          success: res.statusCode >= 200 && res.statusCode < 300,
+          data: data.data || data,
+          error: data.error || null,
+          ...data
+        }
+        return originalJson.call(this, responseData)
+      }
+      return originalJson.call(this, data)
+    }
   }
   next()
 })
 
 app.get("/", (req, res) => {
-  res.json({
-    data: {
-      name: "Raol-UI REST API",
-      version: "5.1.1",
-      description: "Minimalist plugin-based REST API framework",
-      creator: "RaolByte",
-      endpoints: {
-        health: "/health",
-        plugins: "/api/plugins"
+  try {
+    const settings = JSON.parse(fs.readFileSync(path.join(__dirname, "./src/settings.json"), "utf-8"))
+    res.json({
+      data: {
+        name: settings.name,
+        version: settings.version,
+        description: settings.description,
+        creator: settings.apiSettings.creator,
+        endpoints: {
+          health: "/health",
+          plugins: "/api/plugins"
+        }
       }
-    }
-  })
+    })
+  } catch (error) {
+    res.json({
+      data: {
+        name: "Raol-UI REST API",
+        version: "5.1.1",
+        description: "Minimalist plugin-based REST API framework",
+        creator: "RaolByte",
+        endpoints: {
+          health: "/health",
+          plugins: "/api/plugins"
+        }
+      }
+    })
+  }
 })
 
 app.get("/health", (req, res) => {
@@ -179,6 +215,15 @@ const loadApiRoutes = async () => {
 app.get("/api/plugins", (req, res) => {
   try {
     const settings = JSON.parse(fs.readFileSync(path.join(__dirname, "./src/settings.json"), "utf-8"))
+    const requireApikey = settings.apiSettings.requireApikey
+    
+    const categories = settings.categories.map(category => ({
+      ...category,
+      items: category.items.map(item => ({
+        ...item,
+        path: requireApikey ? `${item.path}&apikey=YOUR_API_KEY` : item.path
+      }))
+    }))
     
     res.json({
       data: {
@@ -188,12 +233,17 @@ app.get("/api/plugins", (req, res) => {
         creator: settings.apiSettings.creator,
         totalPlugins: settings.categories.length,
         totalRoutes: totalRoutes,
-        categories: settings.categories,
+        categories: categories,
+        apikeyRequired: requireApikey,
+        apikeyInfo: requireApikey ? {
+          demo: settings.apiSettings.apikey.demo,
+          admin: settings.apiSettings.apikey.admin
+        } : null,
         builtInFeatures: {
           rateLimit: "100 requests per minute",
           cors: "Cross-Origin Resource Sharing enabled",
           securityHeaders: "X-Content-Type-Options, X-Frame-Options, X-XSS-Protection",
-          apikeyAuth: "Available in middleware",
+          apikeyAuth: requireApikey ? "Required for all endpoints" : "Available in middleware",
           healthCheck: "/health endpoint"
         }
       }
