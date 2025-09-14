@@ -103,7 +103,6 @@ app.get("/", (req, res) => {
       creator: "RaolByte",
       endpoints: {
         health: "/health",
-        info: "/api/info",
         plugins: "/api/plugins"
       }
     }
@@ -203,6 +202,13 @@ app.get("/api/plugins", (req, res) => {
               url = '/maker/brat'
               params = [
                 { name: 'text', required: true, type: 'string', description: 'Text to be inserted into the BRAT image' },
+                { name: 'background', required: false, type: 'string', description: 'Background color in hex format (e.g., #000000)' },
+                { name: 'color', required: false, type: 'string', description: 'Text color in hex format (e.g., #FFFFFF)' }
+              ]
+            } else if (subfolder === 'maker' && fileName === 'maker-bratvid') {
+              url = '/maker/bratvid'
+              params = [
+                { name: 'text', required: true, type: 'string', description: 'Text to be inserted into the BRAT video' },
                 { name: 'background', required: false, type: 'string', description: 'Background color in hex format (e.g., #000000)' },
                 { name: 'color', required: false, type: 'string', description: 'Text color in hex format (e.g., #FFFFFF)' }
               ]
