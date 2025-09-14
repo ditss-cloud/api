@@ -3,10 +3,10 @@
   "version": "5.1.1",
   "description": "Minimalist plugin-based REST API framework. Pure JSON responses, no UI components.",
   "type": "module",
-  "main": "api-server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node api-server.js",
-    "dev": "node --watch api-server.js",
+    "start": "node index.js",
+    "dev": "node --watch index.js",
     "build": "npm install",
     "test": "echo \"No tests specified\" && exit 0"
   },
