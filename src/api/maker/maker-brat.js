@@ -2,230 +2,142 @@ import axios from "axios"
 import { createApiKeyMiddleware } from "../../middleware/apikey.js"
 
 export default (app) => {
-  async function generateBratImage(text, background = null, color = null) {
+  async function getBratImage(text) {
     try {
-      const params = new URLSearchParams()
-      params.append("text", text)
+      const encodedText = encodeURIComponent(text)
+      const urls = [
+        `https://aqul-brat.hf.space/?text=${encodedText}`,
+        `https://api-faa-skuarta2.vercel.app/faa/brathd?text=${encodedText}`,
+      ]
+      const shuffledUrls = urls.sort(() => Math.random() - 0.5)
+      let imageBuffer = null
 
-      if (background) {
-        params.append("background", background)
+      for (let url of shuffledUrls) {
+        try {
+          console.log(`[INFO] Mencoba URL (acak): ${url}`)
+          const response = await axios.get(url, { responseType: 'arraybuffer' })
+          imageBuffer = Buffer.from(response.data)
+          if (imageBuffer && imageBuffer.length > 0) {
+            console.log('[SUCCESS] Gambar berhasil diambil.')
+            break
+          }
+        } catch (err) {
+          console.warn(`[WARN] Gagal mengambil gambar dari: ${url} - ${err.message}`)
+        }
       }
 
-      if (color) {
-        params.append("color", color)
+      if (!imageBuffer) {
+        throw new Error('Semua API gagal digunakan.')
       }
 
-      const response = await axios.get(`https://raolbyte-brat.hf.space/maker/brat?${params.toString()}`, {
-        timeout: 30000,
-        headers: {
-          "User-Agent": "Raol-APIs/2.0.0",
-        },
-      })
-
-      if (response.data && response.data.image_url) {
-        const imageResponse = await axios.get(response.data.image_url, {
-          responseType: "arraybuffer",
-          timeout: 30000,
-          headers: {
-            "User-Agent": "Raol-APIs/2.0.0",
-          },
-        })
-
-        return Buffer.from(imageResponse.data)
-      } else {
-        throw new Error("Invalid response from BRAT API")
-      }
+      return imageBuffer
     } catch (error) {
-      console.error("Error generating BRAT image:", error)
-
-      if (error.code === "ECONNABORTED") {
-        throw new Error("Request timeout - BRAT API took too long to respond")
-      } else if (error.response) {
-        throw new Error(`BRAT API error: ${error.response.status} - ${error.response.statusText}`)
-      } else if (error.request) {
-        throw new Error("Network error - Could not reach BRAT API")
-      } else {
-        throw new Error(`BRAT generation failed: ${error.message}`)
-      }
+      throw error
     }
   }
 
-  async function generateBratVideo(text, background = null, color = null) {
+  async function getBratVideo(text) {
     try {
-      const params = new URLSearchParams()
-      params.append("text", text)
-
-      if (background) {
-        params.append("background", background)
-      }
-
-      if (color) {
-        params.append("color", color)
-      }
-
-      const response = await axios.get(`https://raolbyte-brat.hf.space/maker/bratvid?${params.toString()}`, {
-        timeout: 60000,
-        headers: {
-          "User-Agent": "Raol-APIs/2.0.0",
-        },
-      })
-
-      if (response.data && response.data.video_url) {
-        const videoResponse = await axios.get(response.data.video_url, {
-          responseType: "arraybuffer",
-          timeout: 60000,
-          headers: {
-            "User-Agent": "Raol-APIs/2.0.0",
-          },
-        })
-
-        return Buffer.from(videoResponse.data)
-      } else {
-        throw new Error("Invalid response from BRATVID API")
-      }
+      const url = `https://skyzxu-brat.hf.space/brat-animated?text=${encodeURIComponent(text)}`
+      const response = await axios.get(url, { responseType: 'arraybuffer' })
+      return Buffer.from(response.data)
     } catch (error) {
-      console.error("Error generating BRAT video:", error)
-
-      if (error.code === "ECONNABORTED") {
-        throw new Error("Request timeout - BRATVID API took too long to respond")
-      } else if (error.response) {
-        throw new Error(`BRATVID API error: ${error.response.status} - ${error.response.statusText}`)
-      } else if (error.request) {
-        throw new Error("Network error - Could not reach BRATVID API")
-      } else {
-        throw new Error(`BRATVID generation failed: ${error.message}`)
-      }
+      throw error
     }
   }
-
-  app.get("/maker/brat", createApiKeyMiddleware(), async (req, res) => {
+  app.get('/api/maker/brat', createApiKeyMiddleware(), async (req, res) => {
     try {
-      const { text, background, color } = req.query
+      const text = req.query.text || req.body?.text
 
       if (!text) {
-        return res.status(400).json({
-          status: false,
-          error: "Missing required parameter",
-          message: "The 'text' parameter is required",
-        })
+        return res.status(400).json({ status: false, error: 'Text is required' })
       }
 
-      if (text.length > 500) {
-        return res.status(400).json({
-          status: false,
-          error: "Text too long",
-          message: "Text must be 500 characters or less",
-        })
-      }
+      const imageBuffer = await getBratImage(text)
 
-      if (background && !/^#[0-9A-Fa-f]{6}$/.test(background)) {
-        return res.status(400).json({
-          status: false,
-          error: "Invalid background color",
-          message: "Background color must be in hex format (e.g., #000000)",
-        })
-      }
-
-      if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-        return res.status(400).json({
-          status: false,
-          error: "Invalid text color",
-          message: "Text color must be in hex format (e.g., #FFFFFF)",
-        })
-      }
-
-      const imageBuffer = await generateBratImage(text, background, color)
-
-      res.setHeader("Content-Type", "image/png")
-      res.setHeader("Content-Length", imageBuffer.length)
-      res.setHeader("Cache-Control", "public, max-age=3600")
-      res.setHeader("Content-Disposition", `inline; filename="brat_${Date.now()}.png"`)
-
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Content-Length': imageBuffer.length,
+      })
       res.end(imageBuffer)
     } catch (error) {
-      console.error("BRAT API Error:", error)
-
+      console.error('[ERROR] ' + error.message)
       res.status(500).json({
         status: false,
-        error: "Image generation failed",
-        message: error.message || "Failed to generate BRAT image",
+        error: error.message || 'Failed to generate BRAT image',
       })
     }
   })
 
-  app.get("/maker/bratvid", createApiKeyMiddleware(), async (req, res) => {
+  app.post('/api/maker/brat', createApiKeyMiddleware(), async (req, res) => {
     try {
-      const { text, background, color } = req.query
+      const text = req.query.text || req.body?.text
 
       if (!text) {
-        return res.status(400).json({
-          status: false,
-          error: "Missing required parameter",
-          message: "The 'text' parameter is required",
-        })
+        return res.status(400).json({ status: false, error: 'Text is required' })
       }
 
-      if (text.length > 500) {
-        return res.status(400).json({
-          status: false,
-          error: "Text too long",
-          message: "Text must be 500 characters or less",
-        })
-      }
+      const imageBuffer = await getBratImage(text)
 
-      if (background && !/^#[0-9A-Fa-f]{6}$/.test(background)) {
-        return res.status(400).json({
-          status: false,
-          error: "Invalid background color",
-          message: "Background color must be in hex format (e.g., #000000)",
-        })
-      }
-
-      if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-        return res.status(400).json({
-          status: false,
-          error: "Invalid text color",
-          message: "Text color must be in hex format (e.g., #FFFFFF)",
-        })
-      }
-
-      const videoBuffer = await generateBratVideo(text, background, color)
-
-      res.setHeader("Content-Type", "video/mp4")
-      res.setHeader("Content-Length", videoBuffer.length)
-      res.setHeader("Cache-Control", "public, max-age=3600")
-      res.setHeader("Content-Disposition", `inline; filename="bratvid_${Date.now()}.mp4"`)
-      res.setHeader("Accept-Ranges", "bytes")
-      res.setHeader("Access-Control-Allow-Origin", "*")
-      res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-      res.setHeader("Access-Control-Allow-Headers", "Range")
-
-      if (req.method === "HEAD") {
-        return res.end()
-      }
-
-      const range = req.headers.range
-      if (range) {
-        const parts = range.replace(/bytes=/, "").split("-")
-        const start = Number.parseInt(parts[0], 10)
-        const end = parts[1] ? Number.parseInt(parts[1], 10) : videoBuffer.length - 1
-        const chunksize = end - start + 1
-        const chunk = videoBuffer.slice(start, end + 1)
-
-        res.status(206)
-        res.setHeader("Content-Range", `bytes ${start}-${end}/${videoBuffer.length}`)
-        res.setHeader("Content-Length", chunksize)
-        res.end(chunk)
-      } else {
-        res.end(videoBuffer)
-      }
+      res.writeHead(200, {
+        'Content-Type': 'image/png',
+        'Content-Length': imageBuffer.length,
+      })
+      res.end(imageBuffer)
     } catch (error) {
-      console.error("BRATVID API Error:", error)
-
+      console.error('[ERROR] ' + error.message)
       res.status(500).json({
         status: false,
-        error: "Video generation failed",
-        message: error.message || "Failed to generate BRAT video",
+        error: error.message || 'Failed to generate BRAT image',
+      })
+    }
+  })
+
+  // Endpoint untuk video BRAT
+  app.get('/api/maker/bratvideo', createApiKeyMiddleware(), async (req, res) => {
+    try {
+      const text = req.query.text || req.body?.text
+
+      if (!text) {
+        return res.status(400).json({ status: false, error: 'Text is required' })
+      }
+
+      const videoBuffer = await getBratVideo(text)
+
+      res.writeHead(200, {
+        'Content-Type': 'video/mp4',
+        'Content-Length': videoBuffer.length,
+      })
+      res.end(videoBuffer)
+    } catch (error) {
+      console.error('[ERROR] ' + error.message)
+      res.status(500).json({
+        status: false,
+        error: error.message || 'Failed to generate BRAT video',
+      })
+    }
+  })
+
+  app.post('/api/maker/bratvideo', createApiKeyMiddleware(), async (req, res) => {
+    try {
+      const text = req.query.text || req.body?.text
+
+      if (!text) {
+        return res.status(400).json({ status: false, error: 'Text is required' })
+      }
+
+      const videoBuffer = await getBratVideo(text)
+
+      res.writeHead(200, {
+        'Content-Type': 'video/mp4',
+        'Content-Length': videoBuffer.length,
+      })
+      res.end(videoBuffer)
+    } catch (error) {
+      console.error('[ERROR] ' + error.message)
+      res.status(500).json({
+        status: false,
+        error: error.message || 'Failed to generate BRAT video',
       })
     }
   })
